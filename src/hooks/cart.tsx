@@ -30,23 +30,78 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      // To clear the cart, discomment next line and reload the App:
+      // await AsyncStorage.removeItem('@GoMarketplace:cart');
+
+      const storagedProducts = await AsyncStorage.getItem(
+        '@GoMarketplace:cart',
+      );
+
+      if (storagedProducts) {
+        setProducts(JSON.parse(storagedProducts));
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
+  const persistOnLocalStorage = useCallback(async productsToStore => {
+    await AsyncStorage.setItem(
+      '@GoMarketplace:cart',
+      JSON.stringify(productsToStore),
+    );
   }, []);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const increment = useCallback(
+    async id => {
+      setProducts(state => {
+        const auxiliar = state;
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        const index = state.findIndex(item => item.id === id);
+
+        auxiliar[index].quantity += 1;
+
+        persistOnLocalStorage(auxiliar);
+
+        return [...auxiliar];
+      });
+    },
+    [persistOnLocalStorage],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      setProducts(state => {
+        const auxiliar = state;
+
+        const index = state.findIndex(item => item.id === id);
+
+        if (auxiliar[index].quantity > 1) {
+          auxiliar[index].quantity -= 1;
+        }
+
+        persistOnLocalStorage(auxiliar);
+
+        return [...auxiliar];
+      });
+    },
+    [persistOnLocalStorage],
+  );
+
+  const addToCart = useCallback(
+    async (product: Omit<Product, 'quantity'>) => {
+      const productAlreadyAdded = products.some(item => item.id === product.id);
+
+      if (productAlreadyAdded) {
+        increment(product.id);
+      } else {
+        const newState = [...products, { ...product, quantity: 1 }];
+        persistOnLocalStorage(newState);
+        setProducts(newState);
+      }
+    },
+    [increment, persistOnLocalStorage, products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
